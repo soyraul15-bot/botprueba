@@ -1,6 +1,4 @@
-python-telegram-bot==13.15
-schedule
-imapclient
-pyzmail36
-python-dotenv
-openai
+python-telegram-bot==20.6
+fastapi==0.110.2
+uvicorn==0.29.0
+openai==1.23.2
