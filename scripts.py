@@ -1,11 +1,11 @@
 import os
 import asyncio
-import dateparser
 from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from openai import OpenAI
 from scheduler import scheduler
+from dateparser.search import search_dates
 
 # Claves desde entorno
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -20,22 +20,22 @@ openai_client = OpenAI(api_key=OPENAI_API_KEY)
 async def start(update: Update, context):
     await update.message.reply_text("Hola, soy Cabo, tu bot con Webhook activo 🐶🚀")
 
-# Mensajes normales + alertas
+# Manejo de mensajes
 async def handle_message(update: Update, context):
     user_message = update.message.text
     chat_id = update.message.chat_id
 
-    # Detectar si es una solicitud de recordatorio
-    if "recuérdame" in user_message.lower() or "recuerda" in user_message.lower():
-        fecha = dateparser.parse(user_message, languages=["es"])
-        if fecha is None:
-            await update.message.reply_text("No entendí bien cuándo debo recordártelo. Intenta con: 'el jueves a las 5pm recuérdame comprar té'")
-            return
+    # Buscar una fecha dentro del mensaje
+    fechas_encontradas = search_dates(user_message, languages=["es"])
+    if fechas_encontradas:
+        texto_fecha, fecha = fechas_encontradas[0]
 
-        # Extraer mensaje después de "recuérdame"
-        partes = user_message.lower().split("recuérdame")
-        mensaje = partes[1].strip() if len(partes) > 1 else "¡Esto es tu recordatorio!"
+        # Extraer el mensaje de recordatorio (quitando la parte de la fecha)
+        mensaje = user_message.replace(texto_fecha, "").strip()
+        if not mensaje:
+            mensaje = "¡Esto es tu recordatorio!"
 
+        # Programar el recordatorio
         scheduler.add_job(
             context.bot.send_message,
             "date",
@@ -44,30 +44,31 @@ async def handle_message(update: Update, context):
         )
 
         await update.message.reply_text(f"✅ Te lo recordaré el {fecha.strftime('%A %d a las %I:%M %p')}")
-    else:
-        # Procesamiento normal con OpenAI
-        try:
-            response = openai_client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "Eres un bot amigable llamado Cabo."},
-                    {"role": "user", "content": user_message}
-                ]
-            )
-            reply = response.choices[0].message.content.strip()
-            await update.message.reply_text(reply)
-        except Exception as e:
-            await update.message.reply_text("Hubo un error procesando tu mensaje.")
+        return
+
+    # Si no hay fecha, usar OpenAI para responder
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Eres un bot amigable llamado Cabo."},
+                {"role": "user", "content": user_message}
+            ]
+        )
+        reply = response.choices[0].message.content.strip()
+        await update.message.reply_text(reply)
+    except Exception as e:
+        await update.message.reply_text("Hubo un error procesando tu mensaje.")
 
 # Handlers
 application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-# Inicialización para webhook
+# Inicialización para Webhook
 async def setup_bot():
     await application.initialize()
     await application.start()
-    print("🚀 Cabo está listo con Webhook y recordatorios.")
+    print("🚀 Cabo está listo con Webhook y recordatorios inteligentes.")
 
 asyncio.get_event_loop().create_task(setup_bot())
 
