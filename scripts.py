@@ -10,7 +10,6 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Inicializaciones
 app = FastAPI()
-bot = Bot(token=TELEGRAM_TOKEN)
 application = Application.builder().token(TELEGRAM_TOKEN).build()
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -43,7 +42,6 @@ application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_m
 @app.post("/")
 async def webhook(request: Request):
     data = await request.json()
-    update = Update.de_json(data, bot)
+    update = Update.de_json(data, application.bot)  # 👈 CORREGIDO
     await application.process_update(update)
     return {"ok": True}
-
