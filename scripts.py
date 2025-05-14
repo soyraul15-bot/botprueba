@@ -1,6 +1,7 @@
 import os
+import asyncio
 from fastapi import FastAPI, Request
-from telegram import Update, Bot
+from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from openai import OpenAI
 
@@ -38,10 +39,14 @@ async def handle_message(update: Update, context):
 application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
+# 🔧 Inicializar la aplicación (necesario para Webhook)
+asyncio.create_task(application.initialize())
+
 # Webhook endpoint
 @app.post("/")
 async def webhook(request: Request):
     data = await request.json()
-    update = Update.de_json(data, application.bot)  # 👈 CORREGIDO
+    update = Update.de_json(data, application.bot)
     await application.process_update(update)
     return {"ok": True}
+
