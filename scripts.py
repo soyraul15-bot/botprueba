@@ -49,7 +49,7 @@ async def macrohoy(update: Update, context):
     except Exception as e:
         await update.message.reply_text("❌ Hubo un problema consultando los eventos macro.")
 
-async def macromañana(update: Update, context):
+async def macromanana(update: Update, context):
     api_key = os.getenv("MARKETAUX_API_KEY")
     url = f"https://api.marketaux.com/v1/economic_events?filter=country:us&date=TOMORROW&api_token={api_key}"
 
@@ -63,7 +63,7 @@ async def macromañana(update: Update, context):
             await update.message.reply_text("📭 Mañana no hay eventos económicos relevantes.")
             return
 
-        resumen = "🔮 *Eventos macroeconómicos de mañana:*\n"
+        resumen = "🔮 *Eventos macroeconómicos de manana:*\n"
         for e in events:
             hora = e.get("date", "")[-8:-3]
             importancia = e.get("importance", "unknown").capitalize()
@@ -72,7 +72,7 @@ async def macromañana(update: Update, context):
         await update.message.reply_text(resumen, parse_mode="Markdown")
 
     except Exception:
-        await update.message.reply_text("❌ No pude consultar los eventos de mañana.")
+        await update.message.reply_text("❌ No pude consultar los eventos de manana.")
 
 async def macrosemana(update: Update, context):
     api_key = os.getenv("MARKETAUX_API_KEY")
@@ -88,7 +88,7 @@ async def macrosemana(update: Update, context):
             await update.message.reply_text("📭 No hay eventos macroeconómicos en los próximos 7 días.")
             return
 
-        resumen = "📅 *Eventos macroeconómicos próximos:*\n"
+        resumen = "📅 *Eventos macroeconomicos proximos:*\n"
         for e in events:
             fecha_completa = e.get("date", "")[:16].replace("T", " ")
             importancia = e.get("importance", "unknown").capitalize()
