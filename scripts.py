@@ -1,5 +1,6 @@
 import os
 import asyncio
+import datetime
 import dateparser
 import httpx
 from fastapi import FastAPI, Request
@@ -9,24 +10,23 @@ from openai import OpenAI
 from scheduler import scheduler
 from dateparser.search import search_dates
 
-# Claves desde entorno
+# Variables de entorno
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-MARKETAUX_API_KEY = os.getenv("MARKETAUX_API_KEY")  # 👈 API para macrohoy
+MARKETAUX_API_KEY = os.getenv("MARKETAUX_API_KEY")
 
 # Inicializaciones
 app = FastAPI()
 application = Application.builder().token(TELEGRAM_TOKEN).build()
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
-# /start
+# Comando /start
 async def start(update: Update, context):
     await update.message.reply_text("Hola, soy Cabo, tu bot con Webhook activo 🐶🚀")
 
-# /macrohoy
+# Comando /macrohoy
 async def macrohoy(update: Update, context):
-    api_key = MARKETAUX_API_KEY
-    url = f"https://api.marketaux.com/v1/economic_events?filter=country:us&date=TODAY&api_token={api_key}"
+    url = f"https://api.marketaux.com/v1/economic_events?filter=country:us&date=TODAY&api_token={MARKETAUX_API_KEY}"
 
     try:
         async with httpx.AsyncClient() as client:
@@ -40,18 +40,18 @@ async def macrohoy(update: Update, context):
 
         resumen = "📅 *Eventos macroeconómicos de hoy:*\n"
         for e in events:
-            hora = e.get("date", "")[-8:-3]  # Extrae hora del string ISO
+            hora = e.get("date", "")[-8:-3]
             importancia = e.get("importance", "unknown").capitalize()
             resumen += f"🕒 {hora} — {e['title']} ({importancia})\n"
 
         await update.message.reply_text(resumen, parse_mode="Markdown")
 
-    except Exception as e:
-        await update.message.reply_text("❌ Hubo un problema consultando los eventos macro.")
+    except Exception:
+        await update.message.reply_text("❌ Error consultando eventos macro de hoy.")
 
+# Comando /macromanana
 async def macromanana(update: Update, context):
-    api_key = os.getenv("MARKETAUX_API_KEY")
-    url = f"https://api.marketaux.com/v1/economic_events?filter=country:us&date=TOMORROW&api_token={api_key}"
+    url = f"https://api.marketaux.com/v1/economic_events?filter=country:us&date=TOMORROW&api_token={MARKETAUX_API_KEY}"
 
     try:
         async with httpx.AsyncClient() as client:
@@ -63,7 +63,7 @@ async def macromanana(update: Update, context):
             await update.message.reply_text("📭 Mañana no hay eventos económicos relevantes.")
             return
 
-        resumen = "🔮 *Eventos macroeconómicos de manana:*\n"
+        resumen = "🔮 *Eventos macroeconómicos de mañana:*\n"
         for e in events:
             hora = e.get("date", "")[-8:-3]
             importancia = e.get("importance", "unknown").capitalize()
@@ -72,11 +72,11 @@ async def macromanana(update: Update, context):
         await update.message.reply_text(resumen, parse_mode="Markdown")
 
     except Exception:
-        await update.message.reply_text("❌ No pude consultar los eventos de manana.")
+        await update.message.reply_text("❌ Error consultando eventos de mañana.")
 
+# Comando /macrosemana
 async def macrosemana(update: Update, context):
-    api_key = os.getenv("MARKETAUX_API_KEY")
-    url = f"https://api.marketaux.com/v1/economic_events?filter=country:us&date_from=TODAY&date_to=+7DAYS&api_token={api_key}"
+    url = f"https://api.marketaux.com/v1/economic_events?filter=country:us&date_from=TODAY&date_to=+7DAYS&api_token={MARKETAUX_API_KEY}"
 
     try:
         async with httpx.AsyncClient() as client:
@@ -85,23 +85,21 @@ async def macrosemana(update: Update, context):
 
         events = data.get("data", [])
         if not events:
-            await update.message.reply_text("📭 No hay eventos macroeconómicos en los próximos 7 días.")
+            await update.message.reply_text("📭 No hay eventos macroeconómicos esta semana.")
             return
 
-        resumen = "📅 *Eventos macroeconomicos proximos:*\n"
+        resumen = "📅 *Eventos macroeconómicos próximos:*\n"
         for e in events:
-            fecha_completa = e.get("date", "")[:16].replace("T", " ")
+            fecha = e.get("date", "")[:16].replace("T", " ")
             importancia = e.get("importance", "unknown").capitalize()
-            resumen += f"📆 {fecha_completa} — {e['title']} ({importancia})\n"
+            resumen += f"📆 {fecha} — {e['title']} ({importancia})\n"
 
         await update.message.reply_text(resumen, parse_mode="Markdown")
 
     except Exception:
-        await update.message.reply_text("❌ No pude consultar los eventos de la semana.")
+        await update.message.reply_text("❌ Error consultando eventos macroeconómicos.")
 
-
-
-# Mensajes + recordatorios
+# Manejo de mensajes (recordatorios o IA)
 async def handle_message(update: Update, context):
     user_message = update.message.text
     chat_id = update.message.chat_id
@@ -114,7 +112,7 @@ async def handle_message(update: Update, context):
             mensaje = "¡Esto es tu recordatorio!"
 
         # Validar que sea en el futuro
-        if fecha < asyncio.get_event_loop().time():
+        if fecha < datetime.datetime.now():
             await update.message.reply_text("⚠️ Esa hora ya pasó. Intenta con una futura.")
             return
 
@@ -138,7 +136,7 @@ async def handle_message(update: Update, context):
         )
         reply = response.choices[0].message.content.strip()
         await update.message.reply_text(reply)
-    except Exception as e:
+    except Exception:
         await update.message.reply_text("⚠️ Hubo un error procesando tu mensaje.")
 
 # Handlers
@@ -148,8 +146,7 @@ application.add_handler(CommandHandler("macromanana", macromanana))
 application.add_handler(CommandHandler("macrosemana", macrosemana))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-
-# Inicialización del bot
+# Iniciar el bot
 async def setup_bot():
     await application.initialize()
     await application.start()
@@ -164,5 +161,3 @@ async def webhook(request: Request):
     update = Update.de_json(data, application.bot)
     await application.process_update(update)
     return {"ok": True}
-
-
