@@ -49,6 +49,58 @@ async def macrohoy(update: Update, context):
     except Exception as e:
         await update.message.reply_text("❌ Hubo un problema consultando los eventos macro.")
 
+async def macromañana(update: Update, context):
+    api_key = os.getenv("MARKETAUX_API_KEY")
+    url = f"https://api.marketaux.com/v1/economic_events?filter=country:us&date=TOMORROW&api_token={api_key}"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(url)
+            data = r.json()
+
+        events = data.get("data", [])
+        if not events:
+            await update.message.reply_text("📭 Mañana no hay eventos económicos relevantes.")
+            return
+
+        resumen = "🔮 *Eventos macroeconómicos de mañana:*\n"
+        for e in events:
+            hora = e.get("date", "")[-8:-3]
+            importancia = e.get("importance", "unknown").capitalize()
+            resumen += f"🕒 {hora} — {e['title']} ({importancia})\n"
+
+        await update.message.reply_text(resumen, parse_mode="Markdown")
+
+    except Exception:
+        await update.message.reply_text("❌ No pude consultar los eventos de mañana.")
+
+async def macrosemana(update: Update, context):
+    api_key = os.getenv("MARKETAUX_API_KEY")
+    url = f"https://api.marketaux.com/v1/economic_events?filter=country:us&date_from=TODAY&date_to=+7DAYS&api_token={api_key}"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(url)
+            data = r.json()
+
+        events = data.get("data", [])
+        if not events:
+            await update.message.reply_text("📭 No hay eventos macroeconómicos en los próximos 7 días.")
+            return
+
+        resumen = "📅 *Eventos macroeconómicos próximos:*\n"
+        for e in events:
+            fecha_completa = e.get("date", "")[:16].replace("T", " ")
+            importancia = e.get("importance", "unknown").capitalize()
+            resumen += f"📆 {fecha_completa} — {e['title']} ({importancia})\n"
+
+        await update.message.reply_text(resumen, parse_mode="Markdown")
+
+    except Exception:
+        await update.message.reply_text("❌ No pude consultar los eventos de la semana.")
+
+
+
 # Mensajes + recordatorios
 async def handle_message(update: Update, context):
     user_message = update.message.text
@@ -92,7 +144,10 @@ async def handle_message(update: Update, context):
 # Handlers
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("macrohoy", macrohoy))
+application.add_handler(CommandHandler("macromañana", macromañana))
+application.add_handler(CommandHandler("macrosemana", macrosemana))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
 
 # Inicialización del bot
 async def setup_bot():
