@@ -144,7 +144,7 @@ async def handle_message(update: Update, context):
 # Handlers
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("macrohoy", macrohoy))
-application.add_handler(CommandHandler("macromañana", macromañana))
+application.add_handler(CommandHandler("macromanana", macromanana))
 application.add_handler(CommandHandler("macrosemana", macrosemana))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
